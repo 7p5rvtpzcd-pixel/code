@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="代码台">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>代码台</title>
+<link rel="stylesheet" href="vendor/lib/codemirror.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">代码台 <span class="tag">C++ · GCC 14</span></div>
+  <div class="tools">
+    <select id="samples" class="btn" title="示例"></select>
+    <button class="btn" id="btn-new">新建</button>
+    <button class="btn" id="btn-save">保存</button>
+    <button class="btn" id="btn-open">我的代码</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="pane editor-pane">
+    <div class="pane-head">
+      <span id="code-title">main.cpp</span>
+      <span class="hint">Ctrl/⌘ + Enter 运行 · Ctrl/⌘ + S 保存</span>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+  </section>
+
+  <section class="pane side">
+    <div class="io">
+      <div class="field">
+        <label for="stdin">输入 stdin</label>
+        <textarea id="stdin" rows="4" spellcheck="false" placeholder="粘贴测试数据"></textarea>
+      </div>
+      <div class="field">
+        <label for="expect">期望输出（留空不判）</label>
+        <textarea id="expect" rows="3" spellcheck="false" placeholder="题目样例的答案"></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="btn-run">▶ 运行</button>
+      <button class="btn" id="btn-run-all">全部跑一遍</button>
+      <button class="btn" id="btn-save-case">存用例</button>
+    </div>
+
+    <div id="verdict" class="verdict hidden"></div>
+
+    <div class="field grow">
+      <label>输出 <em id="meta"></em></label>
+      <pre id="out" class="out"></pre>
+    </div>
+
+    <div class="cases">
+      <div class="cases-head">
+        <span>测试用例 <em id="case-count"></em></span>
+        <span id="case-summary"></span>
+      </div>
+      <ul id="case-list" class="case-list"></ul>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="vendor/lib/codemirror.js"></script>
+<script src="vendor/mode/clike/clike.js"></script>
+<script src="vendor/addon/edit/closebrackets.js"></script>
+<script src="vendor/addon/edit/matchbrackets.js"></script>
+<script src="samples.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
