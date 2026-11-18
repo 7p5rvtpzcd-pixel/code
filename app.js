@@ -843,58 +843,6 @@
 
   // ---------- 从题面提取样例 ----------
 
-  // 「样例输入 1」「样例 #2」这类标题里的编号不是数据，要丢掉
-  function dropSampleLabel(text) {
-    return String(text).replace(/^[\s:：#\d]{0,6}$/, '').replace(/^[\s:：#]*[#]?\d{1,2}\s*$/, '');
-  }
-
-  function extractFromText(text) {
-    var lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
-    var groups = [];
-    var cur = null;
-    var mode = null;
-
-    function isIn(l) { return /(样例\s*输入|输入样例|Sample\s*Input)/i.test(l); }
-    function isOut(l) { return /(样例\s*输出|输出样例|Sample\s*Output)/i.test(l); }
-    function isStop(l) { return /(数据范围|提示|说明|样例\s*\d)/i.test(l); }
-
-    for (var i = 0; i < lines.length; i++) {
-      var l = lines[i];
-
-      if (isIn(l)) {
-        cur = { stdin: [], expect: [] };
-        groups.push(cur);
-        mode = 'in';
-        var tail = l.replace(/^.*?(样例\s*输入|输入样例|Sample\s*Input)[^\n]*?[:：]?\s*/i, '');
-        tail = dropSampleLabel(tail);
-        if (tail.trim()) cur.stdin.push(tail);
-        continue;
-      }
-
-      if (isOut(l)) {
-        if (!cur) { cur = { stdin: [], expect: [] }; groups.push(cur); }
-        mode = 'out';
-        var tail2 = l.replace(/^.*?(样例\s*输出|输出样例|Sample\s*Output)[^\n]*?[:：]?\s*/i, '');
-        tail2 = dropSampleLabel(tail2);
-        if (tail2.trim()) cur.expect.push(tail2);
-        continue;
-      }
-
-      if (!cur || !mode) continue;
-      if (isStop(l)) { mode = null; continue; }
-      if (l.trim() === '') continue;
-
-      if (mode === 'in') cur.stdin.push(l);
-      else cur.expect.push(l);
-    }
-
-    return groups.map(function (g) {
-      return { stdin: g.stdin.join('\n').trim(), expect: g.expect.join('\n').trim() };
-    }).filter(function (g) {
-      return g.stdin || g.expect;
-    });
-  }
-
   function doExtract() {
     var text = $('problem').value;
     if (!text.trim()) {
@@ -902,7 +850,7 @@
       return;
     }
 
-    var groups = extractFromText(text);
+    var groups = window.extractSamples(text);
     if (!groups.length) {
       $('extract-info').textContent = '没找到「样例输入 / 样例输出」这样的标题';
       return;
