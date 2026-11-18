@@ -107,9 +107,35 @@
     cm.replaceSelection(new Array(cm.getOption('indentUnit') + 1).join(' '), 'end', '+input');
   }
 
+  // 输出太长会卡死页面，只显示开头一段（判题用的仍然是完整输出）
+  var OUT_MAX_LINES = 200;
+  var OUT_MAX_CHARS = 40000;
+
   function setOut(text) {
-    $('out').textContent = text || '';
+    var s = String(text === null || text === undefined ? '' : text);
+    var lines = s.split('\n');
+    var shown = lines.slice(0, OUT_MAX_LINES).join('\n');
+    var cut = lines.length > OUT_MAX_LINES;
+
+    if (shown.length > OUT_MAX_CHARS) {
+      shown = shown.slice(0, OUT_MAX_CHARS);
+      cut = true;
+    }
+
+    if (cut) {
+      shown += '\n\n⋯⋯ 输出太长，只显示开头\n共 ' + lines.length + ' 行 / ' + s.length +
+        ' 字符（判题用的是完整输出，不受影响）';
+    }
+
+    $('out').textContent = shown;
     $('out').scrollTop = 0;
+  }
+
+  // 对拍结果里显示的文本也要夹一下
+  function clip(text, max) {
+    var s = String(text === null || text === undefined ? '' : text);
+    max = max || 1200;
+    return s.length > max ? (s.slice(0, max) + ' …（还有 ' + (s.length - max) + ' 字符）') : s;
   }
 
   function showVerdict(kind, text) {
@@ -573,9 +599,9 @@
 
         res.className = 'verdict fail';
         res.textContent = '✗ 第 ' + (bad + 1) + ' 组数据不一致（已自动存成用例）\n\n' +
-          '输入：\n' + (sInput || '（空）') + '\n\n' +
-          '暴力输出：\n' + (norm(sB.stdout || '') || '（空）') + '\n\n' +
-          '你的输出：\n' + (norm(sA.stdout || '') || '（空）');
+          '输入：\n' + clip(sInput || '（空）', 800) + '\n\n' +
+          '暴力输出：\n' + clip(norm(sB.stdout || '') || '（空）', 800) + '\n\n' +
+          '你的输出：\n' + clip(norm(sA.stdout || '') || '（空）', 800);
         addHistory('对拍', 'fail', '第 ' + (bad + 1) + ' 组不一致');
         toast('找到反例了，已存成用例');
       } else {
@@ -984,6 +1010,141 @@
     $('tpl').classList.add('hidden');
   }
 
+  // ---------- 导出 / 导入 ----------
+
+  function pad2(n) {
+    return n < 10 ? '0' + n : '' + n;
+  }
+
+  function collectData() {
+    return {
+      app: '代码台',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      code: editor.getValue(),
+      stdin: $('stdin').value,
+      expect: $('expect').value,
+      problem: $('problem').value,
+      lang: langId,
+      limits: limitIdx,
+      theme: document.body.classList.contains('light') ? 'light' : 'dark',
+      cases: load(LS.cases, []),
+      snippets: load(LS.snippets, []),
+      history: load(LS.hist, []),
+      gen: $('gen').value,
+      brute: $('brute').value
+    };
+  }
+
+  function exportData() {
+    var data = collectData();
+    var text = JSON.stringify(data, null, 2);
+    var d = new Date();
+    var name = '代码台备份-' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) +
+      '-' + pad2(d.getHours()) + pad2(d.getMinutes()) + '.json';
+
+    try {
+      var blob = new Blob([text], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+      $('data-info').textContent = '已导出 ' + name + '（' + Math.round(text.length / 1024) + ' KB）';
+    } catch (e) {
+      $('data-info').textContent = '导出失败：' + e.message;
+    }
+  }
+
+  function applyData(d) {
+    if (!d || typeof d !== 'object') throw new Error('这个文件不是备份文件');
+    if (d.app && d.app !== '代码台') throw new Error('不是「代码台」的备份');
+
+    if (d.lang === 'c' || d.lang === 'cpp') {
+      if (d.lang !== langId) switchLang(d.lang);
+    }
+    if (typeof d.code === 'string') editor.setValue(d.code);
+    $('stdin').value = d.stdin || '';
+    $('expect').value = d.expect || '';
+    $('problem').value = d.problem || '';
+
+    if (typeof d.limits === 'number' && d.limits >= 0 && d.limits < LIMIT_PRESETS.length) {
+      limitIdx = d.limits;
+      $('limits').value = String(limitIdx);
+      save(LS.limits, limitIdx);
+    }
+    if (d.cases instanceof Array) setCases(d.cases);
+    if (d.snippets instanceof Array) save(LS.snippets, d.snippets);
+    if (d.history instanceof Array) {
+      save(LS.hist, d.history);
+      renderHistory();
+    }
+    if (typeof d.gen === 'string' && d.gen) $('gen').value = d.gen;
+    if (typeof d.brute === 'string' && d.brute) $('brute').value = d.brute;
+
+    applyTheme(d.theme === 'light');
+    persist();
+  }
+
+  function importData(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var d;
+      try {
+        d = JSON.parse(String(reader.result));
+      } catch (e) {
+        $('data-info').textContent = '这个文件不是 JSON，读不了';
+        return;
+      }
+      if (!confirm('导入会覆盖当前的代码、用例和历史，确定吗？')) {
+        $('data-info').textContent = '已取消导入';
+        return;
+      }
+      try {
+        applyData(d);
+        $('data-info').textContent = '导入成功：用例 ' + ((d.cases || []).length) +
+          ' 组，代码片段 ' + ((d.snippets || []).length) + ' 条，历史 ' + ((d.history || []).length) + ' 条';
+        toast('导入成功');
+      } catch (e2) {
+        $('data-info').textContent = '导入失败：' + e2.message;
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function dataInfo() {
+    var bytes = 0;
+    try {
+      Object.keys(LS).forEach(function (k) {
+        var v = localStorage.getItem(LS[k]);
+        if (v) bytes += v.length;
+      });
+    } catch (e) { /* 隐私模式读不到就算了 */ }
+    $('data-info').textContent = '当前占用约 ' + Math.round(bytes / 1024) +
+      ' KB（浏览器上限一般 5MB）';
+  }
+
+  function clearAllData() {
+    if (!confirm('清空所有本地数据？代码、用例、片段、历史全部删除，不能撤销')) return;
+    if (!confirm('再确认一次：真的清空？')) return;
+    Object.keys(LS).forEach(function (k) {
+      try { localStorage.removeItem(LS[k]); } catch (e) { /* 忽略 */ }
+    });
+    location.reload();
+  }
+
+  function openData() {
+    dataInfo();
+    $('data').classList.remove('hidden');
+  }
+
+  function closeData() {
+    $('data').classList.add('hidden');
+  }
+
   // ---------- 初始化 ----------
 
   function pickSample(i) {
@@ -1099,6 +1260,18 @@
     });
     $('btn-extract').addEventListener('click', doExtract);
     $('btn-tpl').addEventListener('click', openTemplates);
+    $('btn-data').addEventListener('click', openData);
+    $('data-close').addEventListener('click', closeData);
+    $('data-export').addEventListener('click', exportData);
+    $('data-import').addEventListener('click', function () { $('data-file').click(); });
+    $('data-clear').addEventListener('click', clearAllData);
+    $('data-file').addEventListener('change', function (e) {
+      if (e.target.files && e.target.files[0]) importData(e.target.files[0]);
+      e.target.value = '';
+    });
+    $('data').addEventListener('click', function (e) {
+      if (e.target === $('data')) closeData();
+    });
     $('tpl-close').addEventListener('click', closeTemplates);
     $('tpl').addEventListener('click', function (e) {
       if (e.target === $('tpl')) closeTemplates();
@@ -1111,6 +1284,11 @@
     if (location.search.indexOf('extract=1') >= 0) setTimeout(doExtract, 300);
     if (location.search.indexOf('lang=c') >= 0) switchLang('c');
     if (location.search.indexOf('tpl=1') >= 0) setTimeout(openTemplates, 300);
+    if (location.search.indexOf('data=1') >= 0) setTimeout(openData, 300);
+    if (location.search.indexOf('export=1') >= 0) setTimeout(exportData, 400);
+    if (location.search.indexOf('applydemo=1') >= 0) setTimeout(function () {
+      applyData({ app: '\u4ee3\u7801\u53f0', code: 'int main(){return 0;}', stdin: 'abc', expect: 'xyz', lang: 'c', limits: 1, theme: 'light', cases: [{ id: 1, name: '\u5bfc\u5165\u7684\u7528\u4f8b', stdin: '1', expect: '1', state: '' }], snippets: [], history: [] });
+    }, 400);
 
     renderCases();
     editor.focus();

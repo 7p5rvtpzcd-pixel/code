@@ -528,6 +528,27 @@ body.light .modal-head { background: #f7f8fa; }
 
 .tpl-name { flex: 1; }
 
+/* 数据备份 */
+.data-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 12px;
+}
+
+.data-actions .btn {
+  padding: 11px 14px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.btn.danger {
+  color: var(--bad);
+  border-color: rgba(255, 107, 107, .45);
+}
+
+.btn.danger:hover { border-color: var(--bad); }
+
 .modal-head {
   display: flex;
   align-items: center;
