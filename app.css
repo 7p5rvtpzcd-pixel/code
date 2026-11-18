@@ -1,4 +1,4 @@
-/* 全局 */
+﻿/* 全局 */
 * { box-sizing: border-box; }
 
 :root {
@@ -95,9 +95,41 @@ select.btn { padding-right: 8px; }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 1px;
+  grid-template-columns: var(--left, 55%) 8px minmax(0, 1fr);
+  background: var(--bg);
+}
+
+/* 中间那条可拖动的分隔条 */
+.splitter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--line);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.splitter::after {
+  content: "";
+  width: 3px;
+  height: 40px;
+  border-radius: 2px;
+  background: #3d485c;
+  transition: background .15s;
+}
+
+.splitter:hover,
+.splitter.dragging { background: var(--accent); }
+
+.splitter:hover::after,
+.splitter.dragging::after { background: #ffffff; }
+
+body.light .splitter::after { background: #c8cedb; }
+
+@media (max-width: 820px) {
+  .splitter { display: none; }
 }
 
 .pane {

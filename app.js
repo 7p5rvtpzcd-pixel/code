@@ -36,7 +36,8 @@
     limits: 'wc.limits',
     hist: 'wc.hist',
     theme: 'wc.theme',
-    lang: 'wc.lang'
+    lang: 'wc.lang',
+    split: 'wc.split'
   };
 
   var editor = null;
@@ -1145,6 +1146,69 @@
     $('data').classList.add('hidden');
   }
 
+  // ---------- 左右可拖动分隔条 ----------
+
+  function splitEls() {
+    return { bar: $('splitter'), box: document.querySelector('.layout') };
+  }
+
+  function setSplit(pct, remember) {
+    var els = splitEls();
+    if (!els.box) return;
+    pct = Math.max(25, Math.min(75, pct));
+    els.box.style.setProperty('--left', pct.toFixed(1) + '%');
+    if (remember) save(LS.split, pct);
+  }
+
+  function initSplitter() {
+    var els = splitEls();
+    if (!els.bar || !els.box) return;
+
+    var saved = Number(load(LS.split, 0));
+    if (saved) setSplit(saved, false);
+
+    var dragging = false;
+
+    function pctFrom(clientX) {
+      var r = els.box.getBoundingClientRect();
+      return ((clientX - r.left) / r.width) * 100;
+    }
+
+    els.bar.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      els.bar.classList.add('dragging');
+      try { els.bar.setPointerCapture(e.pointerId); } catch (err) { /* 老浏览器忽略 */ }
+      e.preventDefault();
+    });
+
+    els.bar.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      setSplit(pctFrom(e.clientX), false);
+    });
+
+    function stop(e) {
+      if (!dragging) return;
+      dragging = false;
+      els.bar.classList.remove('dragging');
+      setSplit(pctFrom(e.clientX !== undefined ? e.clientX : 0), true);
+      // CodeMirror 需要重新量尺寸，否则行号会错位
+      if (editor) editor.refresh();
+    }
+
+    els.bar.addEventListener('pointerup', stop);
+    els.bar.addEventListener('pointercancel', function () {
+      dragging = false;
+      els.bar.classList.remove('dragging');
+      if (editor) editor.refresh();
+    });
+
+    els.bar.addEventListener('dblclick', function () {
+      setSplit(55, true);
+      if (editor) editor.refresh();
+      toast('已恢复默认宽度');
+    });
+  }
+
   // ---------- 初始化 ----------
 
   function pickSample(i) {
@@ -1280,6 +1344,10 @@
       switchLang($('lang').value === 'c' ? 'c' : 'cpp');
     });
     loadFromHash();
+    initSplitter();
+    if (location.search.indexOf('split=') >= 0) {
+      setSplit(Number(location.search.split('split=')[1].split('&')[0]) || 55, false);
+    }
     if (location.search.indexOf('theme=light') >= 0) applyTheme(true);
     if (location.search.indexOf('extract=1') >= 0) setTimeout(doExtract, 300);
     if (location.search.indexOf('lang=c') >= 0) switchLang('c');
