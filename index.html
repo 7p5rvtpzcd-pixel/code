@@ -59,7 +59,12 @@
         <textarea id="stdin" rows="4" spellcheck="false" placeholder="粘贴测试数据"></textarea>
       </div>
       <div class="field">
-        <label for="expect">期望输出（留空不判）</label>
+        <label for="expect">期望输出（留空不判）
+          <select id="judge" class="mini" title="判题严格度">
+            <option value="lenient">宽松</option>
+            <option value="strict">严格</option>
+          </select>
+        </label>
         <textarea id="expect" rows="3" spellcheck="false" placeholder="题目样例的答案"></textarea>
       </div>
     </div>

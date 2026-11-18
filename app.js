@@ -37,7 +37,8 @@
     hist: 'wc.hist',
     theme: 'wc.theme',
     lang: 'wc.lang',
-    split: 'wc.split'
+    split: 'wc.split',
+    judge: 'wc.judge'
   };
 
   var editor = null;
@@ -89,15 +90,50 @@
     el._t = setTimeout(function () { el.classList.add('hidden'); }, 1800);
   }
 
-  // 判题前抹平无关差异：行尾空格、末尾空行、\r\n
-  function norm(text) {
+  // 判题严格度：宽松 = 忽略行尾空格（多数题），严格 = 行尾空格也算（图形题、字符串题）
+  var judgeStrict = false;
+
+  function normLines(text, strict) {
     var lines = String(text === null || text === undefined ? '' : text)
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       .split('\n');
-    for (var i = 0; i < lines.length; i++) lines[i] = lines[i].replace(/[ \t]+$/, '');
+
+    if (!strict) {
+      for (var i = 0; i < lines.length; i++) {
+        lines[i] = lines[i].replace(/[ \t]+$/, '');
+      }
+    }
+
     while (lines.length && lines[lines.length - 1] === '') lines.pop();
     return lines.join('\n');
+  }
+
+  function norm(text) {
+    return normLines(text, judgeStrict);
+  }
+
+  // 找第一条不一样的，告诉用户差在哪
+  function diffHint(got, expect) {
+    var a = String(got || '').replace(/\r\n?/g, '\n').split('\n');
+    var b = String(expect || '').replace(/\r\n?/g, '\n').split('\n');
+    var n = Math.max(a.length, b.length);
+
+    for (var i = 0; i < n; i++) {
+      var x = a[i] === undefined ? null : a[i];
+      var y = b[i] === undefined ? null : b[i];
+      if (x === y) continue;
+
+      if (x === null) return '第 ' + (i + 1) + ' 行开始整行缺失（你的输出行数少了）';
+      if (y === null) return '第 ' + (i + 1) + ' 行开始多输出了内容';
+
+      if (x.replace(/[ \t]+$/, '') === y.replace(/[ \t]+$/, '')) {
+        var extra = x.length - x.replace(/[ \t]+$/, '').length;
+        return '第 ' + (i + 1) + ' 行末尾多了 ' + extra + ' 个空格';
+      }
+      return '第 ' + (i + 1) + ' 行不一样';
+    }
+    return '行数和内容都一样';
   }
 
   function insertSoftTab(cm) {
@@ -257,12 +293,19 @@
     var expect = $('expect').value;
     if (expect.trim()) {
       if (norm(out) === norm(expect)) {
-        showVerdict('pass', '✓ 和期望输出一致');
+        var strictDiff = normLines(out, true) !== normLines(expect, true);
+        if (!judgeStrict && strictDiff) {
+          showVerdict('pass', '✓ 宽松判定一致\n注意：' + diffHint(out, expect) +
+            '（严格判题的题目会 WA，切「严格」再看）');
+        } else {
+          showVerdict('pass', '✓ 和期望输出一致');
+        }
         document.title = 'VERDICT:pass|' + out;
         addHistory('运行', 'pass', d.time ? d.time + 's' : '');
       } else {
-        showVerdict('fail', '✗ 和期望不一致\n期望：' + (norm(expect) || '（空）') +
-          '\n实际：' + (norm(out) || '（空）'));
+        showVerdict('fail', '✗ 和期望不一致：' + diffHint(out, expect) +
+          '\n期望：' + clip(norm(expect) || '（空）', 600) +
+          '\n实际：' + clip(norm(out) || '（空）', 600));
         document.title = 'VERDICT:fail|' + out;
         addHistory('运行', 'fail', '输出不一致');
       }
@@ -1230,6 +1273,7 @@
     });
 
     var savedCode = load(LS.code, null);
+    judgeStrict = load(LS.judge, 'lenient') === 'strict';
     langId = load(LS.lang, 'cpp') === 'c' ? 'c' : 'cpp';
     $('lang').value = langId;
     $('code-title').textContent = langId === 'c' ? 'main.c' : 'main.cpp';
@@ -1272,6 +1316,12 @@
     });
     $('btn-extract').addEventListener('click', doExtract);
     $('btn-tpl').addEventListener('click', openTemplates);
+    $('judge').value = judgeStrict ? 'strict' : 'lenient';
+    $('judge').addEventListener('change', function () {
+      judgeStrict = $('judge').value === 'strict';
+      save(LS.judge, judgeStrict ? 'strict' : 'lenient');
+      toast(judgeStrict ? '严格判定：行尾空格也算' : '宽松判定：忽略行尾空格');
+    });
     $('btn-data').addEventListener('click', openData);
     $('data-close').addEventListener('click', closeData);
     $('data-export').addEventListener('click', exportData);
@@ -1293,6 +1343,7 @@
     });
     loadFromHash();
     initSplitter();
+    if (location.search.indexOf('judge=strict') >= 0) { judgeStrict = true; $('judge').value = 'strict'; }
     if (location.search.indexOf('split=') >= 0) {
       setSplit(Number(location.search.split('split=')[1].split('&')[0]) || 55, false);
     }

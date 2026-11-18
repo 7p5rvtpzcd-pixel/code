@@ -201,6 +201,17 @@ body.light .splitter::after { background: #c8cedb; }
 
 .field em { font-style: normal; color: #5c6678; }
 
+.mini {
+  font-size: 11px;
+  padding: 1px 4px;
+  margin-left: 6px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: inherit;
+}
+
 .field textarea {
   width: 100%;
   background: var(--panel);
