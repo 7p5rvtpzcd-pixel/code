@@ -6,7 +6,8 @@
 
   var BASE = 'https://ce.judge0.com';
   var JUDGE_URL = BASE + '/submissions?wait=true&base64_encoded=false';
-  var CPP_ID = 105; // C++ (GCC 14.1.0)
+  var LANG_IDS = { cpp: 105, c: 103 }; // C++ (GCC 14.1.0) / C (GCC 14.1.0)
+  var langId = 'cpp';
 
   // 时间/内存上限，默认跟洛谷一致：1 秒 / 128MB
   var LIMIT_PRESETS = [
@@ -15,6 +16,8 @@
     { label: '5s / 512MB', cpu: 5, wall: 20, mem: 524288 }
   ];
   var limitIdx = 0;
+
+  function samplesOf(l) { return SAMPLES[l] || SAMPLES.cpp; }
 
   function limits() {
     var p = LIMIT_PRESETS[limitIdx] || LIMIT_PRESETS[0];
@@ -32,7 +35,8 @@
     problem: 'wc.problem',
     limits: 'wc.limits',
     hist: 'wc.hist',
-    theme: 'wc.theme'
+    theme: 'wc.theme',
+    lang: 'wc.lang'
   };
 
   var editor = null;
@@ -144,7 +148,7 @@
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         source_code: code,
-        language_id: CPP_ID,
+        language_id: LANG_IDS[langId],
         stdin: stdin,
         cpu_time_limit: L.cpu_time_limit,
         wall_time_limit: L.wall_time_limit,
@@ -448,7 +452,7 @@
         submissions: jobs.map(function (j) {
           return {
             source_code: j.code,
-            language_id: CPP_ID,
+            language_id: LANG_IDS[langId],
             stdin: j.stdin || '',
             cpu_time_limit: L.cpu_time_limit,
             wall_time_limit: L.wall_time_limit,
@@ -611,8 +615,8 @@
   function parseCompile(text) {
     var lines = String(text || '').split('\n');
     var out = [];
-    var errRe = /^main\.cpp:(\d+):(\d+):\s*(error|warning|note):\s*(.*)$/;
-    var ctxRe = /^main\.cpp:\s*(.+)$/;
+    var errRe = /^main\.(?:cpp|c):(\d+):(\d+):\s*(error|warning|note):\s*(.*)$/;
+    var ctxRe = /^main\.(?:cpp|c):\s*(.+)$/;
 
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i];
@@ -902,10 +906,88 @@
     save(LS.theme, !!light);
   }
 
+  // ---------- 语言切换 ----------
+
+  function refreshSamples() {
+    var sel = $('samples');
+    if (!sel) return;
+    sel.innerHTML = '';
+    samplesOf(langId).forEach(function (s, i) {
+      var o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = s.name;
+      sel.appendChild(o);
+    });
+  }
+
+  function switchLang(next) {
+    var prev = langId;
+    var cur = editor.getValue();
+    var wasDefault = !cur.trim() || cur === samplesOf(prev)[0].code;
+
+    // 对拍的默认代码也跟着换语言（用户改过的不动）
+    if ($('gen').value === DEFAULT_GEN[prev]) $('gen').value = DEFAULT_GEN[next];
+    if ($('brute').value === DEFAULT_BRUTE[prev]) $('brute').value = DEFAULT_BRUTE[next];
+
+    langId = next;
+    save(LS.lang, next);
+    refreshSamples();
+    $('lang').value = next;
+    $('code-title').textContent = next === 'c' ? 'main.c' : 'main.cpp';
+
+    if (wasDefault) {
+      var s = samplesOf(next)[0];
+      editor.setValue(s.code);
+      $('stdin').value = s.stdin || '';
+      $('expect').value = s.expect || '';
+      persist();
+    }
+
+    hideCompile();
+    showVerdict(null);
+    toast('已切换到 ' + (next === 'c' ? 'C' : 'C++'));
+  }
+
+  // ---------- 模板库 ----------
+
+  function openTemplates() {
+    var list = TEMPLATES[langId] || TEMPLATES.cpp;
+    var ul = $('tpl-list');
+    ul.innerHTML = '';
+
+    list.forEach(function (t) {
+      var li = document.createElement('li');
+      var name = document.createElement('span');
+      name.className = 'tpl-name';
+      name.textContent = t.name;
+      li.appendChild(name);
+      li.title = '点击载入（会替换当前代码，Ctrl+Z 可撤回）';
+      li.addEventListener('click', function () {
+        editor.setValue(t.code);
+        if (t.stdin !== undefined) {
+          $('stdin').value = t.stdin;
+          $('expect').value = t.expect || '';
+        }
+        persist();
+        $('tpl').classList.add('hidden');
+        hideCompile();
+        showVerdict(null);
+        toast('已载入：' + t.name);
+      });
+      ul.appendChild(li);
+    });
+
+    $('tpl').classList.remove('hidden');
+  }
+
+  function closeTemplates() {
+    $('tpl').classList.add('hidden');
+  }
+
   // ---------- 初始化 ----------
 
   function pickSample(i) {
-    var s = SAMPLES[i];
+    var s = samplesOf(langId)[i];
     if (!s) return;
     editor.setValue(s.code);
     $('stdin').value = s.stdin || '';
@@ -919,7 +1001,7 @@
 
   function newFile() {
     if (!confirm('清空当前代码和输入？')) return;
-    editor.setValue(SAMPLES[0].code);
+    editor.setValue(samplesOf(langId)[0].code);
     $('stdin').value = '';
     $('expect').value = '';
     showVerdict(null);
@@ -930,12 +1012,7 @@
 
   function init() {
     var sel = $('samples');
-    SAMPLES.forEach(function (s, i) {
-      var o = document.createElement('option');
-      o.value = String(i);
-      o.textContent = s.name;
-      sel.appendChild(o);
-    });
+    refreshSamples();
     sel.addEventListener('change', function () {
       pickSample(Number(sel.value));
       sel.selectedIndex = 0;
@@ -980,9 +1057,12 @@
     });
 
     var savedCode = load(LS.code, null);
-    editor.setValue(typeof savedCode === 'string' && savedCode.length ? savedCode : SAMPLES[0].code);
-    $('stdin').value = load(LS.stdin, SAMPLES[0].stdin || '');
-    $('expect').value = load(LS.expect, SAMPLES[0].expect || '');
+    langId = load(LS.lang, 'cpp') === 'c' ? 'c' : 'cpp';
+    $('lang').value = langId;
+    $('code-title').textContent = langId === 'c' ? 'main.c' : 'main.cpp';
+    editor.setValue(typeof savedCode === 'string' && savedCode.length ? savedCode : samplesOf(langId)[0].code);
+    $('stdin').value = load(LS.stdin, samplesOf(langId)[0].stdin || '');
+    $('expect').value = load(LS.expect, samplesOf(langId)[0].expect || '');
     $('problem').value = load(LS.problem, '');
 
     editor.on('change', persistSoon);
@@ -998,8 +1078,8 @@
     $('btn-new').addEventListener('click', newFile);
 
     // 对拍
-    $('gen').value = load(LS.gen, DEFAULT_GEN);
-    $('brute').value = load(LS.brute, DEFAULT_BRUTE);
+    $('gen').value = load(LS.gen, DEFAULT_GEN[langId]);
+    $('brute').value = load(LS.brute, DEFAULT_BRUTE[langId]);
     $('btn-duel').addEventListener('click', openDuel);
     $('duel-close').addEventListener('click', closeDuel);
     $('duel-run').addEventListener('click', runDuel);
@@ -1018,9 +1098,19 @@
       applyTheme(!document.body.classList.contains('light'));
     });
     $('btn-extract').addEventListener('click', doExtract);
+    $('btn-tpl').addEventListener('click', openTemplates);
+    $('tpl-close').addEventListener('click', closeTemplates);
+    $('tpl').addEventListener('click', function (e) {
+      if (e.target === $('tpl')) closeTemplates();
+    });
+    $('lang').addEventListener('change', function () {
+      switchLang($('lang').value === 'c' ? 'c' : 'cpp');
+    });
     loadFromHash();
     if (location.search.indexOf('theme=light') >= 0) applyTheme(true);
     if (location.search.indexOf('extract=1') >= 0) setTimeout(doExtract, 300);
+    if (location.search.indexOf('lang=c') >= 0) switchLang('c');
+    if (location.search.indexOf('tpl=1') >= 0) setTimeout(openTemplates, 300);
 
     renderCases();
     editor.focus();

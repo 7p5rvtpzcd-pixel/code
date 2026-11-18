@@ -504,6 +504,30 @@ body.light .modal-head { background: #f7f8fa; }
   overflow: hidden;
 }
 
+.modal-box.narrow { width: min(560px, 100%); }
+
+/* 模板列表 */
+.tpl-list { list-style: none; margin: 0; padding: 0; }
+
+.tpl-list li {
+  display: flex;
+  align-items: center;
+  padding: 11px 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tpl-list li:hover {
+  border-color: var(--accent);
+  background: rgba(74, 140, 255, .1);
+}
+
+.tpl-name { flex: 1; }
+
 .modal-head {
   display: flex;
   align-items: center;
