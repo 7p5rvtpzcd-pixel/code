@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -14,21 +14,34 @@
 
 <header class="topbar">
   <div class="brand">代码台 <span class="tag">GCC 14</span></div>
+
   <div class="tools">
     <select id="lang" class="btn" title="语言">
       <option value="cpp">C++</option>
       <option value="c">C</option>
     </select>
     <select id="samples" class="btn" title="示例"></select>
+  </div>
+
+  <div class="tools tools-right">
     <button class="btn" id="btn-tpl">模板</button>
     <button class="btn" id="btn-duel">对拍</button>
     <button class="btn" id="btn-share">分享</button>
-    <button class="btn" id="btn-new">新建</button>
     <button class="btn" id="btn-save">保存</button>
-    <button class="btn" id="btn-open">我的代码</button>
-    <button class="btn" id="btn-data">数据</button>
-    <button class="btn" id="btn-theme" title="深浅色">深色</button>
-    <select id="limits" class="btn" title="时间 / 内存限制"></select>
+    <div class="menu-wrap">
+      <button class="btn icon" id="btn-more" title="更多">⋯</button>
+      <div class="menu hidden" id="more-menu">
+        <button class="menu-item" id="btn-new">新建文件</button>
+        <button class="menu-item" id="btn-open">我的代码</button>
+        <button class="menu-item" id="btn-data">数据备份</button>
+        <button class="menu-item" id="btn-theme">外观：<span id="theme-label">深色</span></button>
+        <div class="menu-sep"></div>
+        <div class="menu-row">
+          <span>时间 / 内存</span>
+          <select id="limits" class="btn" title="时间 / 内存限制"></select>
+        </div>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -44,8 +57,8 @@
   <div class="splitter" id="splitter" title="左右拖动调整宽窄（双击回到默认）"></div>
 
   <section class="pane side">
-    <details class="prob">
-      <summary>题目笔记（题面 / 样例 / 数据范围）</summary>
+    <details class="prob card">
+      <summary>题目笔记 <span class="hint">题面 / 样例 / 数据范围</span></summary>
       <textarea id="problem" rows="5" spellcheck="false" placeholder="粘题面、样例输入输出、数据范围，存在本地，会跟代码一起保存"></textarea>
       <div class="prob-bar">
         <button class="btn" id="btn-extract">从笔记提取样例</button>
@@ -53,37 +66,42 @@
       </div>
     </details>
 
-    <div class="io">
-      <div class="field">
-        <label for="stdin">输入 stdin</label>
-        <textarea id="stdin" rows="4" spellcheck="false" placeholder="粘贴测试数据"></textarea>
+    <div class="card">
+      <div class="io">
+        <div class="field">
+          <label for="stdin">输入 stdin</label>
+          <textarea id="stdin" rows="4" spellcheck="false" placeholder="粘贴测试数据"></textarea>
+        </div>
+        <div class="field">
+          <label for="expect">期望输出
+            <select id="judge" class="mini" title="判题严格度">
+              <option value="lenient">宽松</option>
+              <option value="strict">严格</option>
+            </select>
+          </label>
+          <textarea id="expect" rows="3" spellcheck="false" placeholder="留空则不判"></textarea>
+        </div>
       </div>
-      <div class="field">
-        <label for="expect">期望输出（留空不判）
-          <select id="judge" class="mini" title="判题严格度">
-            <option value="lenient">宽松</option>
-            <option value="strict">严格</option>
-          </select>
-        </label>
-        <textarea id="expect" rows="3" spellcheck="false" placeholder="题目样例的答案"></textarea>
+
+      <div class="actions">
+        <button class="primary" id="btn-run">▶ 运行</button>
+        <button class="btn" id="btn-run-all">全部跑</button>
+        <button class="btn" id="btn-save-case">存用例</button>
       </div>
+
+      <div id="verdict" class="verdict hidden"></div>
+      <div id="compile" class="compile hidden"></div>
     </div>
 
-    <div class="actions">
-      <button class="primary" id="btn-run">▶ 运行</button>
-      <button class="btn" id="btn-run-all">全部跑一遍</button>
-      <button class="btn" id="btn-save-case">存用例</button>
-    </div>
-
-    <div id="verdict" class="verdict hidden"></div>
-    <div id="compile" class="compile hidden"></div>
-
-    <div class="field grow">
-      <label>输出 <em id="meta"></em></label>
+    <div class="card out-card">
+      <div class="out-head">
+        <span>输出</span>
+        <em id="meta"></em>
+      </div>
       <pre id="out" class="out"></pre>
     </div>
 
-    <div class="cases">
+    <div class="card">
       <div class="cases-head">
         <span>测试用例 <em id="case-count"></em></span>
         <span id="case-summary"></span>
@@ -91,7 +109,7 @@
       <ul id="case-list" class="case-list"></ul>
     </div>
 
-    <details class="hist">
+    <details class="card hist">
       <summary>提交历史 <em id="hist-count"></em></summary>
       <ul id="hist-list" class="hist-list"></ul>
     </details>

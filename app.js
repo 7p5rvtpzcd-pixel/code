@@ -920,7 +920,7 @@
 
   function applyTheme(light) {
     document.body.classList.toggle('light', !!light);
-    $('btn-theme').textContent = light ? '浅色' : '深色';
+    $('theme-label').textContent = light ? '浅色' : '深色';
     save(LS.theme, !!light);
   }
 
@@ -1322,6 +1322,22 @@
       save(LS.judge, judgeStrict ? 'strict' : 'lenient');
       toast(judgeStrict ? '严格判定：行尾空格也算' : '宽松判定：忽略行尾空格');
     });
+    // 「…」更多菜单
+    var moreBtn = $('btn-more');
+    var moreMenu = $('more-menu');
+    moreBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      moreMenu.classList.toggle('hidden');
+    });
+    document.addEventListener('click', function (e) {
+      if (!moreMenu.classList.contains('hidden') && !moreMenu.contains(e.target)) {
+        moreMenu.classList.add('hidden');
+      }
+    });
+    Array.prototype.forEach.call(moreMenu.querySelectorAll('.menu-item'), function (el) {
+      el.addEventListener('click', function () { moreMenu.classList.add('hidden'); });
+    });
+
     $('btn-data').addEventListener('click', openData);
     $('data-close').addEventListener('click', closeData);
     $('data-export').addEventListener('click', exportData);
@@ -1343,6 +1359,7 @@
     });
     loadFromHash();
     initSplitter();
+    if (location.search.indexOf('menu=1') >= 0) $('more-menu').classList.remove('hidden');
     if (location.search.indexOf('judge=strict') >= 0) { judgeStrict = true; $('judge').value = 'strict'; }
     if (location.search.indexOf('split=') >= 0) {
       setSplit(Number(location.search.split('split=')[1].split('&')[0]) || 55, false);
